@@ -31,8 +31,8 @@ pipeline {
                     steps {
                         dir('trainer') {
                             sh '''
-                                pip3 install -r requirements.txt --quiet
-                                pip3 install pytest httpx --quiet
+                                pip install -r requirements.txt --quiet
+                                pip install pytest httpx --quiet
                                 # Run unit tests (ignoring model load / inference test)
                                 pytest test_app.py -v -k "not inference"
                             '''
