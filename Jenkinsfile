@@ -44,16 +44,16 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 echo "Building Docker images..."
-                sh 'docker-compose -f ${COMPOSE_FILE} build'
+                sh 'docker compose -f ${COMPOSE_FILE} build'
             }
         }
 
         stage('Deploy') {
             steps {
                 echo "Starting services..."
-                sh 'docker-compose -f ${COMPOSE_FILE} up -d'
+                sh 'docker compose -f ${COMPOSE_FILE} up -d'
                 echo "Waiting for services to initialize..."
-                sleep 10
+                sleep 20
             }
         }
 
@@ -73,12 +73,12 @@ pipeline {
     post {
         always {
             echo "Fetching Docker Compose logs..."
-            sh 'docker-compose -f ${COMPOSE_FILE} logs --no-color > compose_logs.txt 2>&1 || true'
+            sh 'docker compose -f ${COMPOSE_FILE} logs --no-color > compose_logs.txt 2>&1 || true'
             archiveArtifacts artifacts: 'compose_logs.txt', allowEmptyArchive: true
         }
         cleanup {
             echo "Stopping and removing containers..."
-            sh 'docker-compose -f ${COMPOSE_FILE} down --remove-orphans || true'
+            sh 'docker compose -f ${COMPOSE_FILE} down --remove-orphans || true'
         }
     }
 }
