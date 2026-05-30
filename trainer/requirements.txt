@@ -1,11 +1,2 @@
 fastapi
 uvicorn
-requests
-unsloth
-torch
-transformers
-peft
-trl
-datasets
-bitsandbytes
-xformers

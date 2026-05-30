@@ -3,16 +3,16 @@ from pydantic import BaseModel
 import uuid
 import time
 import os
+import threading
 import uvicorn
-from train import run_training
-from unsloth import FastLanguageModel
-import torch
 from typing import Optional
 
 app = FastAPI()
 
 # Shared state for tracking training progress
 jobs = {}
+jobs_lock = threading.Lock()
+
 
 class TrainRequest(BaseModel):
     job_id: Optional[str] = None
@@ -20,65 +20,74 @@ class TrainRequest(BaseModel):
     epochs: Optional[int] = 1
     lr: Optional[float] = 1e-4
 
+
+def mock_training(job_id: str, dataset_path: Optional[str], epochs: int, lr: float):
+    """Simulate training on CPU with a simple sleep loop."""
+    steps = epochs * 10  # fake 10 steps per epoch
+    with jobs_lock:
+        jobs[job_id]["status"] = "running"
+
+    for step in range(1, steps + 1):
+        time.sleep(0.5)  # simulate compute on CPU
+        progress = int((step / steps) * 100)
+        with jobs_lock:
+            jobs[job_id]["progress"] = progress
+            jobs[job_id]["current_step"] = step
+            jobs[job_id]["total_steps"] = steps
+
+    with jobs_lock:
+        jobs[job_id]["status"] = "done"
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["end_time"] = time.time()
+
+
 @app.post('/train', status_code=202)
 def train(req: TrainRequest, background_tasks: BackgroundTasks):
     job_id = req.job_id or str(uuid.uuid4())
 
-    jobs[job_id] = {
-        "status": "queued",
-        "progress": 0,
-        "start_time": time.time()
-    }
+    with jobs_lock:
+        jobs[job_id] = {
+            "status": "queued",
+            "progress": 0,
+            "start_time": time.time(),
+        }
 
-    # Start training in a background task to keep the API responsive
-    background_tasks.add_task(run_training, job_id, req.dataset_path, req.epochs, req.lr, jobs)
+    background_tasks.add_task(
+        mock_training, job_id, req.dataset_path, req.epochs or 1, req.lr or 1e-4
+    )
 
     return {"job_id": job_id, "status": "queued"}
 
+
 @app.get('/status/{job_id}')
 def status(job_id: str):
-    job = jobs.get(job_id)
+    with jobs_lock:
+        job = jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
+
 class InferenceRequest(BaseModel):
-    model_id: Optional[str] = "psychotic_uncle_lora"
-    instruction: Optional[str] = "what is life ?"
+    model_id: Optional[str] = "mock_model"
+    instruction: Optional[str] = "what is life?"
+
 
 @app.post('/inference')
 def inference(req: InferenceRequest):
-    try:
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name = req.model_id,
-            max_seq_length = 1024,
-            load_in_4bit = True,
-        )
-        FastLanguageModel.for_inference(model)
-        
-        formatted_prompt = f"### Instruction:\n{req.instruction}\n\n### Response:\n"
-        inputs = tokenizer(formatted_prompt, return_tensors="pt").to("cuda")
-        
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens = 200,
-            temperature = 0.8,
-            do_sample = True,
-        )
-        
-        response = tokenizer.decode(outputs[0], skip_special_tokens = True)
-        if "### Response:" in response:
-            clean_response = response.split("### Response:")[1].strip()
-        else:
-            clean_response = response[len(formatted_prompt):].strip()
-            
-        return {"response": clean_response}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Return a mock response without loading any real model."""
+    time.sleep(0.1)  # tiny CPU delay to simulate processing
+    mock_response = (
+        f"[MOCK] Model '{req.model_id}' received: '{req.instruction}'. "
+        "This is a simulated response running entirely on CPU."
+    )
+    return {"response": mock_response}
+
 
 @app.get('/health')
 def health():
     return {"status": "up"}
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8000))
