@@ -51,7 +51,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo "Starting services..."
-                sh 'docker compose -f ${COMPOSE_FILE} up -d'
+                sh 'docker compose -f ${COMPOSE_FILE} down --remove-orphans || true'
+                sh 'docker compose -f ${COMPOSE_FILE} up -d --force-recreate'
                 echo "Waiting for services to initialize..."
                 sleep 20
             }
