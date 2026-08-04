@@ -6,7 +6,6 @@ backend-go/bin/
 trainer/venv/
 trainer/__pycache__/
 trainer/*.pyc
-trainer/.pytest_cache/
 
 # Model artifacts (too large for git)
 trainer/models/
