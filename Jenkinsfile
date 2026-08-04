@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        BUILD_ID = 'dontKillMe'
         COMPOSE_FILE = 'docker-compose.yml'
     }
 
@@ -73,7 +74,7 @@ pipeline {
             archiveArtifacts artifacts: 'compose_logs.txt', allowEmptyArchive: true
         }
         cleanup {
-            sh 'docker compose -f ${COMPOSE_FILE} down --remove-orphans || true'
+            //sh 'docker compose -f ${COMPOSE_FILE} down --remove-orphans || true'
             cleanWs()
         }
     }
